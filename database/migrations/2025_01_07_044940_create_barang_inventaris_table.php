@@ -20,11 +20,12 @@ return new class extends Migration
             $table->datetime('tanggal_entry')->useCurrent();
             $table->enum('status_barang',[1,2,3]);//1 =baik,2=normal,3=rusak
             $table->enum('status_tersedia',['tersedia','tidak_tersedia'])->default('tersedia');
-            $table->string('sumber_id');
+            $table->unsignedBigInteger('vendor_id');
             $table->timestamps();
 
             $table->foreign('jenis_barang_kode')->references('jenis_barang_kode')->on('jenis_barang');
             $table->foreign('user_id')->references('id')->on('user');
+            $table->foreign('vendor_id')->references('id')->on('vendor');
         });
     }
 
