@@ -4,6 +4,7 @@ use App\Http\Controllers\PeminjamanController;
 use App\Http\Controllers\PeminjamanBarangController;
 use App\Http\Controllers\BarangInventarisController;
 use App\Http\Controllers\JenisBarangController;
+use App\Http\Controllers\VendorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
@@ -32,8 +33,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Rute yang hanya bisa diakses oleh admin
     Route::middleware('role:admin')->group(function () {
-        Route::post('/barang-inventaris', [BarangInventarisController::class, 'store']);
-        Route::post('/jenis-barang', [JenisBarangController::class, 'store']);
+        // CRUD barang inventaris
+        Route::post('/barang-inventaris', [BarangInventarisController::class, 'store']); // Create
+        Route::get('/barang-inventaris', [BarangInventarisController::class, 'index']); // Read (List)
+        Route::get('/barang-inventaris/{kode}', [BarangInventarisController::class, 'show']); // Read (Detail)
+        Route::put('/barang-inventaris/{kode}', [BarangInventarisController::class, 'update']); // Update
+        Route::delete('/barang-inventaris/{kode}', [BarangInventarisController::class, 'destroy']); // Delete
+
+        //CRUD jenis barang
+        Route::post('/jenis-barang', [JenisBarangController::class, 'store']); // Create
+        Route::get('/jenis-barang', [JenisBarangController::class, 'index']); // Read (List)
+        Route::get('/jenis-barang/{kode}', [JenisBarangController::class, 'show']); // Read (Detail)
+        Route::put('/jenis-barang/{kode}', [JenisBarangController::class, 'update']); // Update
+        Route::delete('/jenis-barang/{kode}', [JenisBarangController::class, 'destroy']); // Delete
+        Route::resource('/vendor', VendorController::class);
     });
 
     // Rute yang hanya bisa diakses oleh user

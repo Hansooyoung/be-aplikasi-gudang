@@ -27,21 +27,29 @@ class BarangInventaris extends Model
         'nama_barang',
         'tanggal_terima',
         'tanggal_entry',
-        'status',
+        'status_barang',
+        'status_tersedia',
+        'vendor_id', // Tambahkan vendor_id di fillable
     ];
 
     // Kolom yang dikelola secara otomatis oleh Eloquent
     public $timestamps = true;
 
-    // Relasi ke model 'JenisBarang' (jika ada)
+    // Relasi ke model 'JenisBarang'
     public function jenisBarang()
     {
         return $this->belongsTo(JenisBarang::class, 'jenis_barang_kode', 'jenis_barang_kode');
     }
 
-    // Relasi ke model 'User' (jika ada)
+    // Relasi ke model 'User'
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
+    }
+
+    // Relasi ke model 'Vendor'
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class, 'vendor_id', 'id');
     }
 }

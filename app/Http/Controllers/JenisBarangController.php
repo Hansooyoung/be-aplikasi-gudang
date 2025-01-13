@@ -1,28 +1,17 @@
 <?php
-
 namespace App\Http\Controllers;
-use Carbon\Carbon;
-use Symfony\Component\HttpFoundation\Response;
+
 use App\Models\JenisBarang;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class JenisBarangController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    // Pastikan hanya user yang terautentikasi yang bisa mengakses fungsi ini
+    public function __construct()
     {
-        $jenisBarang = JenisBarang::all();
-        return view('jenis_barang.index', compact('jenisBarang'));
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        return view('jenis_barang.create');
+        $this->middleware('auth:sanctum');
     }
 
     /**
@@ -56,44 +45,64 @@ class JenisBarangController extends Controller
         return response()->json(['data' => $jenisBarang], Response::HTTP_CREATED);
     }
 
+    /**
+     * Display a listing of the resource.
+     */
+    public function index()
+    {
+        $jenisBarang = JenisBarang::all(); // Ambil semua data jenis barang
+        return response()->json(['data' => $jenisBarang], Response::HTTP_OK);
+    }
 
     /**
      * Display the specified resource.
      */
-    public function show(JenisBarang $jenisBarang)
+    public function show($kode)
     {
-        return view('jenis_barang.show', compact('jenisBarang'));
-    }
+        $jenisBarang = JenisBarang::where('jenis_barang_kode', $kode)->first();
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(JenisBarang $jenisBarang)
-    {
-        return view('jenis_barang.edit', compact('jenisBarang'));
+        if (!$jenisBarang) {
+            return response()->json(['message' => 'Jenis barang tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
+        return response()->json(['data' => $jenisBarang], Response::HTTP_OK);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, JenisBarang $jenisBarang)
+    public function update(Request $request, $kode)
     {
         $request->validate([
             'jenis_barang_nama' => 'required|string|max:50',
         ]);
 
-        $jenisBarang->update($request->all());
+        $jenisBarang = JenisBarang::where('jenis_barang_kode', $kode)->first();
 
-        return redirect()->route('jenis_barang.index')->with('success', 'Jenis Barang berhasil diperbarui.');
+        if (!$jenisBarang) {
+            return response()->json(['message' => 'Jenis barang tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Update nama jenis barang
+        $jenisBarang->jenis_barang_nama = $request->jenis_barang_nama;
+        $jenisBarang->save();
+
+        return response()->json(['data' => $jenisBarang], Response::HTTP_OK);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(JenisBarang $jenisBarang)
+    public function destroy($kode)
     {
+        $jenisBarang = JenisBarang::where('jenis_barang_kode', $kode)->first();
+
+        if (!$jenisBarang) {
+            return response()->json(['message' => 'Jenis barang tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
         $jenisBarang->delete();
 
-        return redirect()->route('jenis_barang.index')->with('success', 'Jenis Barang berhasil dihapus.');
+        return response()->json(['message' => 'Jenis barang berhasil dihapus.'], Response::HTTP_OK);
     }
 }
