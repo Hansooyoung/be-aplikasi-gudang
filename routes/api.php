@@ -17,6 +17,7 @@ use App\Http\Controllers\AuthController;
 
 // Endpoint untuk login
 Route::post('login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 // Gunakan middleware auth:sanctum untuk mengakses rute berikutnya
 Route::middleware('auth:sanctum')->group(function () {
@@ -46,7 +47,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/jenis-barang/{kode}', [JenisBarangController::class, 'show']); // Read (Detail)
         Route::put('/jenis-barang/{kode}', [JenisBarangController::class, 'update']); // Update
         Route::delete('/jenis-barang/{kode}', [JenisBarangController::class, 'destroy']); // Delete
-        Route::resource('/vendor', VendorController::class);
+
+        //crud vendor
+        Route::get('/vendor', [VendorController::class, 'index']); // Read (List)
+        Route::get('/vendor/{id}', [VendorController::class, 'show']); // Read (Detail)
+        Route::put('/vendor/{id}', [VendorController::class, 'update']); // Update
+        Route::delete('/vendor/{id}', [VendorController::class, 'destroy']); // Delete
+
     });
 
     // Rute yang hanya bisa diakses oleh user

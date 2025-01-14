@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string("id",20)->primary();
             $table->string("peminjaman_id",20);
             $table->string("kode_barang",20);
-            $table->datetime("tanggal_peminjaman");
+
             $table->timestamps();
 
             $table->foreign('peminjaman_id')->references('id')->on('peminjaman');

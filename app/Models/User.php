@@ -23,6 +23,7 @@ class User extends Authenticatable
     // Kolom yang dapat diisi
     protected $fillable = [
         'id',
+        'email',
         'nama',
         'password',
         'hak',

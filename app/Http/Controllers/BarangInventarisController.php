@@ -137,4 +137,18 @@ class BarangInventarisController extends Controller
 
         return response()->json(['message' => 'Barang berhasil dihapus.'], Response::HTTP_OK);
     }
+
+    public function restore($kode)
+{
+    $barangInventaris = BarangInventaris::withTrashed()->where('kode_barang', $kode)->first();
+
+    if (!$barangInventaris) {
+        return response()->json(['message' => 'Barang tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+    }
+
+    $barangInventaris->restore();
+
+    return response()->json(['message' => 'Barang berhasil dipulihkan.'], Response::HTTP_OK);
+}
+
 }

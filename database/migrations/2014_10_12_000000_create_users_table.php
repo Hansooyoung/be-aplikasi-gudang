@@ -13,7 +13,8 @@
         {
             Schema::create('user', function (Blueprint $table) {
                 $table->string("id",10)->primary();
-                $table->string('nama',50);
+                $table->string('nama',255);
+                $table->string('email',255)->unique();
                 $table->string('password',32);
                 $table->enum('role',['super','admin','user']);
                 $table->rememberToken();

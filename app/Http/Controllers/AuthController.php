@@ -1,9 +1,9 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -11,15 +11,15 @@ class AuthController extends Controller
     {
         // Validasi input
         $request->validate([
-            'nama' => 'required|string',
+            'email' => 'required|email',
             'password' => 'required|string',
         ]);
 
-        // Cari user berdasarkan nama
-        $user = User::where('nama', $request->nama)->first();
+        // Cari user berdasarkan email
+        $user = User::where('email', $request->email)->first();
 
-        // Periksa apakah user ditemukan dan password cocok menggunakan md5
-        if ($user && md5($request->password) == $user->password) {
+        // Periksa apakah user ditemukan dan password cocok
+        if ($user && md5($request->password, $user->password)) {
             // Membuat token baru menggunakan id user sebagai nama token
             $token = $user->createToken($user->id)->plainTextToken;
 
@@ -30,8 +30,18 @@ class AuthController extends Controller
             ], 200);
         } else {
             return response()->json([
-                'message' => 'Nama atau password salah'
+                'message' => 'Email atau password salah'
             ], 401);
         }
+    }
+
+    public function logout(Request $request)
+    {
+        // Hapus token autentikasi pengguna yang sedang login
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logout berhasil'
+        ], 200);
     }
 }
