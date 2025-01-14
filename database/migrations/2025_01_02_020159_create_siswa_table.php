@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('jurusan_id');
             $table->string('no_hp');
             $table->timestamps();
-
+            $table->softDeletes(); // Menambahkan kolom deleted_at untuk soft delete
             $table->foreign('kelas_id')->references('id')->on('kelas');
             $table->foreign('jurusan_id')->references('id')->on('jurusan');
         });

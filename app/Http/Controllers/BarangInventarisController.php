@@ -121,10 +121,6 @@ class BarangInventarisController extends Controller
             'jenis_barang_nama' => $barangInventaris->jenisBarang->jenis_barang_nama,
         ], Response::HTTP_OK);
     }
-
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy($kode)
     {
         $barangInventaris = BarangInventaris::where('kode_barang', $kode)->first();
@@ -137,18 +133,23 @@ class BarangInventarisController extends Controller
 
         return response()->json(['message' => 'Barang berhasil dihapus.'], Response::HTTP_OK);
     }
-
-    public function restore($kode)
-{
-    $barangInventaris = BarangInventaris::withTrashed()->where('kode_barang', $kode)->first();
-
-    if (!$barangInventaris) {
-        return response()->json(['message' => 'Barang tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+    public function trashed()
+    {
+        $barangInventaris = BarangInventaris::onlyTrashed()->with(['vendor', 'jenisBarang'])->get();
+        return response()->json(['data' => $barangInventaris], Response::HTTP_OK);
     }
 
-    $barangInventaris->restore();
+    public function restore($kode)
+    {
+        $barangInventaris = BarangInventaris::onlyTrashed()->where('kode_barang', $kode)->first();
 
-    return response()->json(['message' => 'Barang berhasil dipulihkan.'], Response::HTTP_OK);
-}
+        if (!$barangInventaris) {
+            return response()->json(['message' => 'Barang tidak ditemukan di tempat sampah.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $barangInventaris->restore();
+
+        return response()->json(['message' => 'Barang berhasil dipulihkan.'], Response::HTTP_OK);
+    }
 
 }

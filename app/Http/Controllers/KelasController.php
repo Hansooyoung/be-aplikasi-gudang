@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\kelas;
-use App\Http\Requests\StorekelasRequest;
-use App\Http\Requests\UpdatekelasRequest;
+use App\Models\Kelas;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class KelasController extends Controller
 {
@@ -13,54 +13,78 @@ class KelasController extends Controller
      */
     public function index()
     {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
+        $kelas = Kelas::all();
+        return response()->json(['data' => $kelas], Response::HTTP_OK);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(StorekelasRequest $request)
+    public function store(Request $request)
     {
-        //
+        $request->validate([
+            'nama_kelas' => 'required|string|max:255',
+        ]);
+
+        $kelas = Kelas::create($request->all());
+
+        return response()->json([
+            'message' => 'Kelas berhasil ditambahkan.',
+            'data' => $kelas,
+        ], Response::HTTP_CREATED);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(kelas $kelas)
+    public function show($id)
     {
-        //
-    }
+        $kelas = Kelas::find($id);
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(kelas $kelas)
-    {
-        //
+        if (!$kelas) {
+            return response()->json(['message' => 'Kelas tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
+        return response()->json(['data' => $kelas], Response::HTTP_OK);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdatekelasRequest $request, kelas $kelas)
+    public function update(Request $request, $id)
     {
-        //
+        $request->validate([
+            'nama_kelas' => 'required|string|max:255',
+        ]);
+
+        $kelas = Kelas::find($id);
+
+        if (!$kelas) {
+            return response()->json(['message' => 'Kelas tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $kelas->update($request->all());
+
+        return response()->json([
+            'message' => 'Kelas berhasil diperbarui.',
+            'data' => $kelas,
+        ], Response::HTTP_OK);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(kelas $kelas)
+    public function destroy($id)
     {
-        //
+        $kelas = Kelas::find($id);
+
+        if (!$kelas) {
+            return response()->json(['message' => 'Kelas tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $kelas->delete();
+
+        return response()->json(['message' => 'Kelas berhasil dihapus.'], Response::HTTP_OK);
     }
 }
+    

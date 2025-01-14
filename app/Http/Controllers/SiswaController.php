@@ -2,65 +2,119 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\siswa;
-use App\Http\Requests\StoresiswaRequest;
-use App\Http\Requests\UpdatesiswaRequest;
+use App\Models\Siswa;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class SiswaController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum');
+    }
+
     /**
-     * Display a listing of the resource.
+     * Menampilkan daftar siswa
      */
     public function index()
     {
-        //
+        $siswa = Siswa::all();
+        return response()->json(['data' => $siswa], Response::HTTP_OK);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Menampilkan detail siswa berdasarkan NISN
      */
-    public function create()
+    public function show($nisn)
     {
-        //
+        $siswa = Siswa::where('nisn', $nisn)->first();
+
+        if (!$siswa) {
+            return response()->json(['message' => 'Siswa tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
+        return response()->json(['data' => $siswa], Response::HTTP_OK);
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Menyimpan data siswa baru
      */
-    public function store(StoresiswaRequest $request)
+    public function store(Request $request)
     {
-        //
+        $request->validate([
+            'nisn' => 'required|unique:siswa,nisn',
+            'nama' => 'required|string|max:255',
+            'kelas_id' => 'required|exists:kelas,id',
+            'jurusan_id' => 'required|exists:jurusan,id',
+            'no_hp' => 'required|string|max:15',
+        ]);
+
+        $siswa = Siswa::create($request->all());
+
+        return response()->json([
+            'message' => 'Siswa berhasil ditambahkan.',
+            'data' => $siswa
+        ], Response::HTTP_CREATED);
     }
 
     /**
-     * Display the specified resource.
+     * Mengupdate data siswa berdasarkan NISN
      */
-    public function show(siswa $siswa)
+    public function update(Request $request, $nisn)
     {
-        //
+        $siswa = Siswa::where('nisn', $nisn)->first();
+
+        if (!$siswa) {
+            return response()->json(['message' => 'Siswa tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $siswa->update($request->all());
+
+        return response()->json([
+            'message' => 'Data siswa berhasil diperbarui.',
+            'data' => $siswa
+        ], Response::HTTP_OK);
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Menghapus data siswa (soft delete)
      */
-    public function edit(siswa $siswa)
+    public function destroy($nisn)
     {
-        //
+        $siswa = Siswa::where('nisn', $nisn)->first();
+
+        if (!$siswa) {
+            return response()->json(['message' => 'Siswa tidak ditemukan.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $siswa->delete();
+
+        return response()->json(['message' => 'Siswa berhasil dihapus.'], Response::HTTP_OK);
     }
 
     /**
-     * Update the specified resource in storage.
+     * Mengembalikan data siswa yang telah di-soft delete
      */
-    public function update(UpdatesiswaRequest $request, siswa $siswa)
+    public function restore($nisn)
     {
-        //
+        $siswa = Siswa::onlyTrashed()->where('nisn', $nisn)->first();
+
+        if (!$siswa) {
+            return response()->json(['message' => 'Siswa tidak ditemukan di arsip.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $siswa->restore();
+
+        return response()->json(['message' => 'Siswa berhasil dipulihkan.'], Response::HTTP_OK);
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Menampilkan daftar siswa yang sudah di-soft delete
      */
-    public function destroy(siswa $siswa)
+    public function trashed()
     {
-        //
+        $siswa = Siswa::onlyTrashed()->get();
+
+        return response()->json(['data' => $siswa], Response::HTTP_OK);
     }
 }
