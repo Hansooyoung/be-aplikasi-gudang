@@ -3,130 +3,253 @@
 namespace App\Http\Controllers;
 
 use App\Models\Peminjaman;
-use App\Models\DetailPeminjaman;
-use App\Models\PeminjamanBarang;
+use App\Models\PeminjamanDetail;
+use App\Models\Pengembalian;
+use App\Models\BarangInventaris;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpFoundation\Response;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
 
 class PeminjamanController extends Controller
 {
-    /**
-     * Generate pbd_id (ID detail peminjaman) baru.
-     */
-    public static function generatePbdId($id)
-    {
-        $maxUrut = DB::table('peminjaman_barang')
-            ->select(DB::raw("IFNULL(MAX(CAST(SUBSTRING(id, -3) AS UNSIGNED)), 0) + 1 AS next_urut"))
-            ->where('id', 'like', "{$id}%")
-            ->value('next_urut');
-
-        return sprintf("%s%03d", $id, $maxUrut);
-    }
-
-
-    /**
-     * Menyimpan peminjaman baru beserta detail barang ke dalam database.
-     */
+    // Fungsi untuk menyimpan peminjaman dan peminjaman_detail
     public function store(Request $request)
     {
+        $this->validate($request, [
+            'siswa_id' => 'required|exists:siswa,id',
+            'kode_barang' => 'required|array',
+        ]);
+
+        $errors = [];
+        DB::beginTransaction();
         try {
-            $validatedData = $request->validate([
-                'no_siswa' => 'required|string|max:20',
-                'nama_siswa' => 'required|string|max:50',
-                'status' => 'required|string|max:2',
-                'kode_barang' => 'required|array',
-                'kode_barang.*' => 'required|string|max:20',
-            ]);
+            // Generate Peminjaman ID
+            $peminjamanId = $this->generatePeminjamanId();
 
-            $tanggalPeminjaman = Carbon::now();
-            $harusKembaliTanggal = $tanggalPeminjaman->copy()->addDays(7);
+            // Menyimpan data peminjaman
+            $peminjaman = new Peminjaman();
+            $peminjaman->id = $peminjamanId;
+            $peminjaman->user_id = auth()->user()->id;
+            $peminjaman->siswa_id = $request->siswa_id;
+            $peminjaman->tanggal_peminjaman = now();
+            $peminjaman->tanggal_pengembalian = now()->addDays(7); // Contoh 7 hari pengembalian
+            $peminjaman->save();
 
-            $user = Auth::user();
-            $userId = $user->id;
-            $id = self::generatePbId();
+            // Menyimpan peminjaman_detail untuk setiap barang yang dipinjam dan pengembalian terkait
+            foreach ($request->kode_barang as $kode_barang) {
+                // Validasi apakah barang ada dan tersedia
+                $barang = BarangInventaris::where('kode_barang', $kode_barang)->first();
 
-            $peminjaman = Peminjaman::create([
-                'id' => $id,
-                'user_id' => $userId,
-                'no_siswa' => $validatedData['no_siswa'],
-                'nama_siswa' => $validatedData['nama_siswa'],
-                'harus_kembali_tanggal' => $harusKembaliTanggal,
-                'status' => $validatedData['status'],
-            ]);
+                // Jika barang tidak ditemukan di database
+                if (!$barang) {
+                    $errors[] = "Barang dengan kode {$kode_barang} tidak ditemukan di database.";
+                    continue; // Lewatkan ke barang berikutnya
+                }
 
-            foreach ($validatedData['kode_barang'] as $kode_barang) {
-                PeminjamanBarang::create([
-                    'id' => self::generatePbdId($id),
-                    'peminjaman_id' => $id,
-                    'kode_barang' => $kode_barang,
-                    'tanggal_peminjaman' => $tanggalPeminjaman,
-                    'status' => '0',
-                ]);
+                // Jika barang tidak tersedia
+                if ($barang->status_tersedia != 'tersedia') {
+                    $errors[] = "Barang dengan kode {$kode_barang} tidak tersedia.";
+                    continue; // Lewatkan ke barang berikutnya
+                }
+
+                // Update status barang menjadi tidak_tersedia
+                $barang->status_tersedia = 'tidak_tersedia';
+                $barang->save();
+
+                // Menyimpan data peminjaman_detail
+                $peminjamanDetail = new PeminjamanDetail();
+                $peminjamanDetail->id = $this->generatePeminjamanDetailId($peminjamanId);
+                $peminjamanDetail->peminjaman_id = $peminjamanId;
+                $peminjamanDetail->kode_barang = $kode_barang;
+                $peminjamanDetail->save();
+
+                // Membuat pengembalian setelah peminjaman_detail disimpan
+                $pengembalian = new Pengembalian();
+                $pengembalian->id = $this->generatePengembalianId(); // Generate pengembalian ID
+                $pengembalian->peminjaman_detail_id = $peminjamanDetail->id; // Menggunakan ID yang benar
+                $pengembalian->user_id = null; // Akan diisi saat pengembalian dilakukan
+                $pengembalian->tanggal_kembali = null;
+                $pengembalian->status_barang = null;
+                $pengembalian->status_kembali = "dipinjam";
+                $pengembalian->save();
             }
 
-            return response()->json(['peminjaman' => $peminjaman], 201);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json(['errors' => $e->errors()], 422);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Terjadi kesalahan saat menyimpan data.', 'message' => $e->getMessage()], 500);
-        }
-    }
-
-
-
-    /**
-     * Menampilkan detail peminjaman beserta barang yang dipinjam.
-     */
-    public function show($id)
-    {
-        $peminjaman = Peminjaman::with('detailPeminjaman')->find($id);
-
-        if (!$peminjaman) {
-            return response()->json(['message' => 'Peminjaman tidak ditemukan.'], 404);
-        }
-
-        return response()->json(['peminjaman' => $peminjaman], 200);
-    }
-
-    /**
-     * Mengupdate status detail peminjaman barang.
-     */
-    public function update(Request $request, $id)
-    {
-        try {
-            $validatedData = $request->validate([
-                'pdb_status' => 'required|string|max:2',
-            ]);
-
-            $detailPeminjaman = PeminjamanBarang::find($id);
-
-            if (!$detailPeminjaman) {
-                return response()->json(['message' => 'Detail peminjaman tidak ditemukan.'], 404);
+            // Jika ada error, rollback dan kirim error yang ditemukan
+            if (!empty($errors)) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Gagal membuat peminjaman, beberapa barang tidak tersedia atau tidak ditemukan.',
+                    'errors' => $errors,
+                ], 400);
             }
 
-            $detailPeminjaman->update(['pdb_status' => $validatedData['pdb_status']]);
+            DB::commit();
 
-            return response()->json(['message' => 'Status peminjaman barang berhasil diperbarui.', 'data' => $detailPeminjaman], 200);
+            return response()->json([
+                'message' => 'Peminjaman berhasil dibuat',
+                'data' => $peminjaman,
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Terjadi kesalahan saat memperbarui data.', 'message' => $e->getMessage()], 500);
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Gagal membuat peminjaman',
+                'error' => $e->getMessage(),
+            ], 500);
         }
     }
 
-    /**
-     * Generate pb_id (ID peminjaman) baru.
-     */
-    private function generatePbId()
+
+    // Fungsi untuk mengupdate pengembalian
+    public function updatePengembalian(Request $request, $pengembalianId)
     {
-        $year = Carbon::now()->year;
-        $month = str_pad(Carbon::now()->month, 2, '0', STR_PAD_LEFT);
+        $this->validate($request, [
+            'status_barang' => 'required|in:1,2,3', // Define your status (e.g., good, damaged, lost)
+            'status_kembali' => 'required|in:dipinjam,dikembalikan', // Status pengembalian
+        ]);
 
-        $maxUrut = Peminjaman::where('id', 'like', "PB{$year}{$month}%")
-            ->max(DB::raw("CAST(SUBSTRING(id, 9) AS UNSIGNED)")) ?? 0;
+        DB::beginTransaction();
+        try {
+            $pengembalian = Pengembalian::findOrFail($pengembalianId);
 
-        $newUrut = str_pad($maxUrut + 1, 3, '0', STR_PAD_LEFT);
-        return "PB{$year}{$month}{$newUrut}";
+            // Cek jika status pengembalian sudah dikembalikan
+            if ($pengembalian->status_kembali == "dikembalikan") {
+                throw new \Exception('Barang sudah dikembalikan sebelumnya');
+            }
+
+            // Update pengembalian status
+            $pengembalian->user_id = auth()->user()->id; // User yang mengembalikan barang
+            $pengembalian->tanggal_kembali = now(); // Waktu pengembalian
+            $pengembalian->status_barang = $request->status_barang; // Status barang saat dikembalikan
+            $pengembalian->status_kembali = 'dikembalikan'; // Set status_kembali menjadi "dikembalikan"
+            $pengembalian->save();
+
+            // Update status barang di peminjaman_detail
+            $peminjamanDetail = PeminjamanDetail::where('id', $pengembalian->peminjaman_detail_id)->first();
+            $peminjamanDetail->status_kembali = 'dikembalikan'; // Set status kembali pada peminjaman_detail
+            $peminjamanDetail->save();
+
+            // Update status barang di tabel barang_inventaris menjadi tersedia
+            $barang = BarangInventaris::where('kode_barang', $peminjamanDetail->kode_barang)->first();
+            if ($barang) {
+                $barang->status_tersedia = 'tersedia'; // Set status barang menjadi tersedia
+                $barang->save();
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Pengembalian berhasil',
+                'data' => $pengembalian,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Gagal memproses pengembalian',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // Fungsi untuk mendapatkan daftar peminjaman dengan filter status
+// Fungsi untuk mendapatkan daftar peminjaman dengan filter status
+    public function getPeminjaman(Request $request)
+    {
+        $status = $request->query('status');
+        $peminjamanQuery = Peminjaman::query();
+
+        if ($status) {
+            $peminjamanQuery->whereHas('peminjamanDetails.pengembalian', function ($query) use ($status) {
+                $query->where('status_kembali', $status);
+            });
+        }
+
+        $peminjaman = $peminjamanQuery->with(['peminjamanDetails.pengembalian'])->get();
+
+        return response()->json([
+            'message' => 'Data peminjaman berhasil diambil',
+            'data' => $peminjaman,
+        ]);
+    }
+
+
+    // Fungsi untuk mendapatkan detail peminjaman
+    // Fungsi untuk mendapatkan detail peminjaman
+    public function showPeminjaman($id)
+    {
+        $peminjaman = Peminjaman::with(['peminjamanDetails.pengembalian'])->findOrFail($id);
+
+        return response()->json([
+            'message' => 'Data peminjaman berhasil diambil',
+            'data' => $peminjaman,
+        ]);
+    }
+
+
+    // Fungsi untuk mendapatkan daftar pengembalian
+    public function getPengembalian()
+    {
+        $pengembalian = Pengembalian::with(['peminjamanDetail.peminjaman'])->get();
+
+        return response()->json([
+            'message' => 'Data pengembalian berhasil diambil',
+            'data' => $pengembalian,
+        ]);
+    }
+
+    // Fungsi untuk mendapatkan detail pengembalian
+    public function showPengembalian($id)
+    {
+        $pengembalian = Pengembalian::with(['peminjamanDetail.peminjaman'])->findOrFail($id);
+
+        return response()->json([
+            'message' => 'Data pengembalian berhasil diambil',
+            'data' => $pengembalian,
+        ]);
+    }
+
+    // Fungsi untuk generate ID peminjaman
+    public function generatePeminjamanId()
+    {
+        $tahun_sekarang = date('Y');
+        $lastTransaction = Peminjaman::where('id', 'like', 'PJ' . $tahun_sekarang . '%')
+            ->orderBy('id', 'desc')
+            ->first();
+        $no_urut = $lastTransaction ? (intval(substr($lastTransaction->id, -3)) + 1) : 1;
+        $newId = 'PJ' . $tahun_sekarang . str_pad($no_urut, 3, '0', STR_PAD_LEFT);
+
+        while (Peminjaman::where('id', $newId)->exists()) {
+            $no_urut++;
+            $newId = 'PJ' . $tahun_sekarang . str_pad($no_urut, 3, '0', STR_PAD_LEFT);
+        }
+
+        return $newId;
+    }
+
+    // Fungsi untuk generate ID peminjaman detail
+    public function generatePeminjamanDetailId($peminjamanId)
+    {
+        $maxUrut = DB::table('peminjaman_detail')
+            ->select(DB::raw("IFNULL(MAX(CAST(SUBSTRING(id, -3) AS UNSIGNED)), 0) + 1 AS next_urut"))
+            ->where('peminjaman_id', $peminjamanId)
+            ->value('next_urut');
+        return sprintf("%s%03d", $peminjamanId, $maxUrut);
+    }
+
+    // Fungsi untuk generate ID pengembalian
+    public function generatePengembalianId()
+    {
+        $tahun_sekarang = date('Y');
+        $bulan_sekarang = date('m');
+        $lastTransaction = Pengembalian::where('id', 'like', 'PB' . $tahun_sekarang . $bulan_sekarang . '%')
+            ->orderBy('id', 'desc')
+            ->first();
+        $no_urut = $lastTransaction ? (intval(substr($lastTransaction->id, -3)) + 1) : 1;
+        $newId = 'PB' . $tahun_sekarang . $bulan_sekarang . str_pad($no_urut, 3, '0', STR_PAD_LEFT);
+
+        while (Pengembalian::where('id', $newId)->exists()) {
+            $no_urut++;
+            $newId = 'PB' . $tahun_sekarang . $bulan_sekarang . str_pad($no_urut, 3, '0', STR_PAD_LEFT);
+        }
+
+        return $newId;
     }
 }

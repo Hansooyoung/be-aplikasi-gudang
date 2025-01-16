@@ -15,13 +15,13 @@ return new class extends Migration
             $table->string("id",20)->primary();
             $table->string("peminjaman_detail_id",20);
             $table->string("user_id",20)->nullable();
-            $table->string("tanggal_kembali",20)->nullable();
+            $table->datetime("tanggal_kembali")->nullable();
             $table->enum("status_barang",[1,2,3])->nullable();
-            $table->enum("status_kembali",[0,1]);//0=dipinjam,1=dikembalikan
+            $table->enum('status_kembali',["dipinjam","dikembalikan"])->default("dipinjam");
 
             $table->timestamps();
 
-            $table->foreign('peminjaman_detail_id')->references('id')->on('peminjaman');
+            $table->foreign('peminjaman_detail_id')->references('id')->on('peminjaman_detail');
             
         });
     }

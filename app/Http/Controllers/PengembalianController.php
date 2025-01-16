@@ -2,65 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\pengembalian;
-use App\Http\Requests\StorepengembalianRequest;
-use App\Http\Requests\UpdatepengembalianRequest;
+use Illuminate\Http\Request;
+use App\Models\Pengembalian;
+use App\Models\BarangInventaris;
+use Carbon\Carbon;
 
 class PengembalianController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function update(Request $request, $id)
     {
-        //
-    }
+        $pengembalian = Pengembalian::findOrFail($id);
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
+        $pengembalian->update([
+            'user_id' => $request->user_id,
+            'tanggal_kembali' => Carbon::now(),
+            'status_barang' => $request->status_barang,
+            'status_kembali' => 1,
+        ]);
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StorepengembalianRequest $request)
-    {
-        //
-    }
+        $status_tersedia = $request->status_barang == 3 ? 'tidak_tersedia' : 'tersedia';
+        BarangInventaris::where('kode_barang', $pengembalian->peminjamanDetail->kode_barang)
+            ->update(['status_tersedia' => $status_tersedia]);
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(pengembalian $pengembalian)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(pengembalian $pengembalian)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdatepengembalianRequest $request, pengembalian $pengembalian)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(pengembalian $pengembalian)
-    {
-        //
+        return response()->json([
+            'message' => 'Pengembalian berhasil diperbarui',
+            'pengembalian' => $pengembalian,
+        ]);
     }
 }

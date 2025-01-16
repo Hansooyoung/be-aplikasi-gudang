@@ -20,6 +20,7 @@ use App\Http\Controllers\AuthController;
 
 // Endpoint untuk login
 Route::post('login', [AuthController::class, 'login']);
+Route::post('/create', [AuthController::class, 'store']);
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 
 // Gunakan middleware auth:sanctum untuk mengakses rute berikutnya
@@ -29,11 +30,6 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
 
-    // Rute yang hanya bisa diakses oleh super
-    Route::middleware('role:super')->group(function () {
-        Route::get('/peminjaman', [PeminjamanController::class, 'index']);
-        Route::delete('/peminjaman/{id}', [PeminjamanController::class, 'destroy']);
-    });
 
     // Rute yang hanya bisa diakses oleh admin
     Route::middleware('role:admin')->group(function () {
@@ -82,12 +78,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/siswa/restore/{nisn}', [SiswaController::class, 'restore']);
         Route::get('/siswa/trashed', [SiswaController::class, 'trashed']);
 
+        Route::post('/peminjaman', [PeminjamanController::class, 'store']); // Menyimpan peminjaman
+        Route::get('/peminjaman', [PeminjamanController::class, 'getPeminjaman']); // Mendapatkan daftar peminjaman dengan filter
+        Route::get('/peminjaman/{id}', [PeminjamanController::class, 'showPeminjaman']); // Menampilkan detail peminjaman
+
+        // Pengembalian Routes
+        Route::put('/pengembalian/{pengembalianId}', [PeminjamanController::class, 'updatePengembalian']); // Mengupdate pengembalian
+        Route::get('/pengembalian', [PeminjamanController::class, 'getPengembalian']); // Mendapatkan daftar pengembalian
+        Route::get('/pengembalian/{id}', [PeminjamanController::class, 'showPengembalian']); // Menampilkan detail pengembalian
+
     });
 
     // Rute yang hanya bisa diakses oleh user
     Route::middleware('role:user')->group(function () {
-        Route::post('/peminjaman', [PeminjamanController::class, 'store']);
-        Route::post('/peminjaman-barang', [PeminjamanBarangController::class, 'store']);
+
     });
 });
 

@@ -12,7 +12,7 @@
         public function up(): void
         {
             Schema::create('user', function (Blueprint $table) {
-                $table->string("id",10)->primary();
+                $table->id();
                 $table->string('nama',255);
                 $table->string('email',255)->unique();
                 $table->string('password',32);

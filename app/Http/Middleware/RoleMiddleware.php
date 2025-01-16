@@ -13,10 +13,10 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, string $role)
     {
-        if (!Auth::check() || Auth::user()->role !== $role) {
-            return response()->json(['message' => $role], 403);
+        if (Auth::check() && (Auth::user()->role == $role || Auth::user()->role == 'super')) {
+            return $next($request);
         }
 
-        return $next($request);
+        return response()->json(['message' => $role], 403);
     }
 }
